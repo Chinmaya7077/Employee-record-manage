@@ -1,0 +1,443 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>TASK MANAGEMENT!</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .checkboxes {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            z-index: 1000;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .form-control:focus {
+            box-shadow: none;
+            border-color: #007bff;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .pagination .page-link {
+            color: #007bff;
+        }
+        .pagination .page-link:hover {
+            background-color: #e9ecef;
+        }
+        /* Small Dropdown for Items Per Page */
+        .form-control-sm {
+            width: auto;
+            display: inline-block;
+            max-width: 80px;
+        }
+        .form-inline .form-control-sm {
+            margin-right: 10px;
+        }
+        /* Fixed Width for Technology Filter */
+        #technology-dropdown, #technology-checkboxes {
+            width: 200px; /* Fixed width for dropdown */
+            max-width: 100%; /* Prevent overflow */
+        }
+        #technology-dropdown {
+            white-space: nowrap; /* Prevent text from wrapping */
+            overflow: hidden; /* Hide overflow text */
+            text-overflow: ellipsis; /* Show ellipsis when text overflows */
+        }
+
+        #selected-technologies {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .selected-tech-tag {
+            background-color: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+        
+        .remove-tech {
+            cursor: pointer;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .technology-dropdown-container {
+            position: relative;
+            width: 200px;
+        }
+
+
+        #search-input {
+            width: 50%; /* Adjust as needed */
+            max-width: 300px; /* Limit the maximum width */
+        }
+        
+    </style>
+    <script>
+        $(document).ready(function() {
+            // Automatically hide alert messages after 3 seconds
+            setTimeout(function() {
+                $('.alert').fadeOut('slow');
+            }, 3000);
+        
+            // Create a container for selected technologies
+            $('.technology-dropdown-container').append('<div id="selected-technologies"></div>');
+        
+            // Function to update the selected technologies display
+            function updateSelectedTechnologies() {
+                const selectedTechs = [];
+                $('#technology-checkboxes input[type="checkbox"]:checked').each(function() {
+                    selectedTechs.push({
+                        id: $(this).val(),
+                        name: $(this).next('label').text().trim()
+                    });
+                });
+        
+                const container = $('#selected-technologies');
+                container.empty();
+                
+                selectedTechs.forEach(tech => {
+                    container.append(`
+                        <span class="selected-tech-tag">
+                            ${tech.name}
+                            <span class="remove-tech" data-tech-id="${tech.id}">×</span>
+                        </span>
+                    `);
+                });
+        
+                $('#technology-dropdown').text(
+                    selectedTechs.length ? `${selectedTechs.length} Technologies Selected` : 'Filter By Technology'
+                );
+            }
+        
+            // Toggle the dropdown for technology filter
+            $('#technology-dropdown').on('click', function(event) {
+                event.stopPropagation();
+                $('#technology-checkboxes').toggle();
+            });
+        
+            // Prevent dropdown from closing when clicking on checkboxes
+            $('#technology-checkboxes').on('click', function(event) {
+                event.stopPropagation();
+            });
+        
+            // Hide dropdown when clicking outside
+            $(document).on('click', function(event) {
+                if (!$(event.target).closest('#technology-dropdown').length) {
+                    $('#technology-checkboxes').hide();
+                }
+            });
+        
+            // Function to get selected technologies
+            function getSelectedTechnologies() {
+                var selectedTechs = [];
+                $('#technology-checkboxes input[type="checkbox"]:checked').each(function() {
+                    selectedTechs.push($(this).val());
+                });
+                return selectedTechs;
+            }
+        
+            // Function to update results
+            function updateResults() {
+                var query = $('#search-input').val().trim();
+                var selectedTechs = getSelectedTechnologies();
+                var perPage = $('#per-page').val();
+        
+                var searchData = {
+                    'page': 1,
+                    'per_page': perPage
+                };
+        
+                if (query) {
+                    searchData.search = query;
+                }
+                
+                if (selectedTechs.length > 0) {
+                    searchData.technology = selectedTechs;
+                }
+        
+                $.ajax({
+                    url: '{% url "search" %}',
+                    data: searchData,
+                    traditional: true,
+                    dataType: 'json',
+                    success: function(data) {
+                        var html = '';
+                        if (data.found) {
+                            data.tasks.forEach(function(task) {
+                                html += `
+                                    <tr>
+                                        <td>${task.index}</td>
+                                        <td>${task.first_name}</td>
+                                        <td>${task.mail_id}</td>
+                                        <td>Rs ${parseFloat(task.salary).toFixed(2)}</td>
+                                        <td>${task.technologies}</td>
+                                        <td>
+                                            <a href="/tasks/update/${task.id}/" class="btn btn-warning btn-sm">Update</a>
+                                            <a href="/tasks/remove/${task.id}/" class="btn btn-danger btn-sm">Remove</a>
+                                        </td>
+                                    </tr>`;
+                            });
+                        } else {
+                            html = '<tr><td colspan="6" class="text-center text-danger">No matching records found.</td></tr>';
+                        }
+                        $('#task-list-body').html(html);
+                        updatePagination(data, query, selectedTechs);
+                    },
+                    error: function() {
+                        $('#task-list-body').html('<tr><td colspan="6" class="text-center text-danger">Error fetching data.</td></tr>');
+                    }
+                });
+            }
+        
+            // Update search input handler
+            $('#search-input').on('keyup', function() {
+                $(this).val($(this).val().trimStart().replace(/\s{2,}/g, ' '));
+                updateResults();
+            });
+        
+            // Handle checkbox changes
+            $('#technology-checkboxes input[type="checkbox"]').on('change', function() {
+                updateSelectedTechnologies();
+                updateResults();
+            });
+        
+            // Handle removing individual technologies
+            $(document).on('click', '.remove-tech', function(e) {
+                e.stopPropagation();
+                const techId = $(this).data('tech-id');
+                $(`#tech-${techId}`).prop('checked', false);
+                updateSelectedTechnologies();
+                updateResults();
+            });
+        
+            // Initialize the display
+            updateSelectedTechnologies();
+        
+            // Clear search function
+            $('#search-clear').on('click', function() {
+                $('#search-input').val('');
+                updateResults();
+            });
+        
+            // Reset filters
+            $('#reset-filters').on('click', function() {
+                $('#per-page').val(10);
+                location.href = `{% url "index" %}?per_page=10`;
+            });
+        
+            // Update pagination
+            function updatePagination(data, query, selectedTechs) {
+                var paginationHtml = '';
+                if (data.has_previous) {
+                    paginationHtml += `<li class="page-item"><a class="page-link" href="?page=${data.page_number - 1}&per_page=${$('#per-page').val()}&search=${query}&technology=${selectedTechs.join('&technology=')}">&laquo;</a></li>`;
+                }
+                for (var i = 1; i <= data.total_pages; i++) {
+                    paginationHtml += `<li class="page-item ${i === data.page_number ? 'active' : ''}"><a class="page-link" href="?page=${i}&per_page=${$('#per-page').val()}&search=${query}&technology=${selectedTechs.join('&technology=')}">${i}</a></li>`;
+                }
+                if (data.has_next) {
+                    paginationHtml += `<li class="page-item"><a class="page-link" href="?page=${data.page_number + 1}&per_page=${$('#per-page').val()}&search=${query}&technology=${selectedTechs.join('&technology=')}">&raquo;</a></li>`;
+                }
+                $('.pagination').html(paginationHtml);
+            }
+        
+            // Handle per-page change
+            $('#per-page').on('change', function() {
+                updateResults();
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="mt-4 mb-3 text-center">EMPLOYEE RECORDS</h1>
+        <hr>
+    
+        <!-- Display messages -->
+        {% if messages %}
+            <div class="alert alert-info">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    
+        <!-- Navigation and actions -->
+        <nav class="navbar navbar-light bg-light">
+            <form class="form-inline d-flex justify-content-between w-100 align-items-center" method="get">
+                <a class="btn btn-primary" href="{% url 'all' %}" role="button">All Employee</a>
+                <a class="btn btn-primary" href="{% url 'add' %}" role="button">Add A Employee</a>
+                <!-- Technology Filter -->
+                <div class="form-group position-relative technology-dropdown-container">
+                    <div id="technology-dropdown" class="form-control" style="cursor: pointer;">
+                        Filter By Technology
+                    </div>
+                    <div id="technology-checkboxes" class="checkboxes">
+                        {% for tech in technologies %}
+                        <div>
+                            <input type="checkbox" name="technology" value="{{ tech.id }}" id="tech-{{ tech.id }}"
+                                {% if tech.id|stringformat:"s" in selected_technologies %}checked{% endif %}>
+                            <label for="tech-{{ tech.id }}">{{ tech.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Hidden input for per_page -->
+                <input type="hidden" name="per_page" value="{{ per_page }}">
+
+                <button type="button" id="reset-filters" class="btn btn-secondary ml-2">Reset Filters</button>
+            </form>
+        </nav>
+        <hr>
+
+        <!-- Per Page Selection -->
+       
+        <form method="get" class="form-inline" id="per-page-form">
+            <div class="form-group">
+                <label for="per-page" class="form-label">Records Per Page</label>
+                <select name="per_page" id="per-page" class="form-control form-control-sm ml-2">
+                    <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                </select>
+            </div>
+
+            <!-- Keep the existing filter and search parameters -->
+            {% for tech_id in selected_technologies %}
+                <input type="hidden" name="technology" value="{{ tech_id }}">
+            {% endfor %}
+            
+            <!-- Only include the search parameter if there is a query -->
+            {% if search_query %}
+                <input type="hidden" name="search" value="{{ search_query }}">
+            {% endif %}
+        </form>
+       
+        <hr>
+
+        <!-- Search and Clear functionality -->
+        <div class="row mb-4">
+            <div class="col-6 d-flex">
+                <input type="text" id="search-input" class="form-control me-2" placeholder="Search by name or email" value="{{ search_query }}">
+                <button id="search-clear" class="btn btn-danger">Clear</button>
+            </div>
+        </div>
+        
+
+        <!-- Task table -->
+        <table class="table table-striped table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Salary</th>
+                    <th>Technologies</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="task-list-body">
+                {% for task in tasks %}
+                    <tr>
+                        <!-- This will show serial number across pages -->
+                        <td>{{ tasks.start_index|add:forloop.counter0 }}</td>
+                        <td>{{ task.first_name }} {{task.last_name}}</td>
+                        <td>{{ task.mail_id }}</td>
+                        <td>Rs {{ task.salary|floatformat:2 }}</td>
+                        <td>{{ task.technology.all|join:", " }}</td>
+                        <td>
+                            <a class="btn btn-warning" href="{% url 'update' task_id=task.id %}" role="button">Update</a>
+                            <a class="btn btn-danger" href="{% url 'remove' task_id=task.id %}" role="button">Remove</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table> 
+
+        <!-- Pagination -->
+        {% if tasks %}
+        <nav aria-label="Page navigation example">
+            <ul class="pagination justify-content-center">
+                {% if tasks.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&per_page={{ per_page }}{% if selected_technologies %}&technology={{ selected_technologies|join:'&technology=' }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="First">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.previous_page_number }}&per_page={{ per_page }}{% if selected_technologies %}&technology={{ selected_technologies|join:'&technology=' }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                {% endif %}
+        
+                <li class="page-item disabled">
+                    <span class="page-link">Page {{ tasks.number }} of {{ tasks.paginator.num_pages }}</span>
+                </li>
+        
+                {% for i in tasks.paginator.page_range %}
+                    <li class="page-item {% if tasks.number == i %}active{% endif %}">
+                        <a class="page-link" href="?page={{ i }}&per_page={{ per_page }}{% if selected_technologies %}&technology={{ selected_technologies|join:'&technology=' }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ i }}</a>
+                    </li>
+                {% endfor %}
+        
+                {% if tasks.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.next_page_number }}&per_page={{ per_page }}{% if selected_technologies %}&technology={{ selected_technologies|join:'&technology=' }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.paginator.num_pages }}&per_page={{ per_page }}{% if selected_technologies %}&technology={{ selected_technologies|join:'&technology=' }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Last">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %} 
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+{% comment %} comments {% endcomment %}
+
+{% comment %} comment {% endcomment %}

@@ -1,0 +1,40 @@
+{% comment %} 
+$('#search-input').on('keyup', function() {
+    var query = $(this).val();
+    $.ajax({
+        url: '{% url "search" %}',
+        data: { 'search': query },
+        dataType: 'json',
+        success: function(data) {
+            var tasks = data.tasks;
+            var html = '';
+            if (data.found) {
+                tasks.forEach(function(task, index) {
+                    html += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${task.first_name}</td>
+                            <td>${task.mail_id}</td>
+                            <td>Rs ${parseFloat(task.salary).toFixed(2)}</td>
+                            <td>${task.technologies}</td>
+                            <td>
+                                <a href="/tasks/update/${task.id}/" class="btn btn-warning btn-sm">Update</a>
+                                <a href="/tasks/remove/${task.id}/" class="btn btn-danger btn-sm">Delete</a>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html = '<tr><td colspan="6" class="text-center text-danger">There is no matching data.</td></tr>';
+            }
+            $('#task-list-body').html(html);
+        },
+        error: function() {
+            $('#task-list-body').html('<tr><td colspan="6" class="text-center text-danger">Error fetching data.</td></tr>');
+        }
+    });
+});
+  {% endcomment %}
+
+
+  
